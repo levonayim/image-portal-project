@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Landscape Portal</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div id="bg-layer-a" class="bg-photo kenburns"></div>
+  <div id="bg-layer-b" class="bg-photo kenburns"></div>
+
+  <div id="empty-state" class="empty-state">
+    <h1>No photos yet</h1>
+    <p>Drop landscape images into the <code>/photos</code> folder, then list them in <code>photos.config.js</code>.</p>
+  </div>
+
+  <div id="glass-box" tabindex="0" role="button" aria-label="Next photo">
+    <div id="glass-peek"></div>
+    <div class="glass-surface"></div>
+  </div>
+
+  <button id="nav-prev" class="nav-arrow nav-prev" aria-label="Previous photo">&#8249;</button>
+  <button id="nav-next" class="nav-arrow nav-next" aria-label="Next photo">&#8250;</button>
+
+  <div id="caption"></div>
+
+  <script src="photos.config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

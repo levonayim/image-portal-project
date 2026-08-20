@@ -1,0 +1,11 @@
+# User-managed photo files (kept local, not versioned).
+# The folder structure and config/docs are still tracked.
+photos/*
+!photos/README.md
+
+# OS cruft
+.DS_Store
+
+# Local export/output from tools/make-motion-photo.sh
+*.mp4
+*.gif
