@@ -65,59 +65,91 @@
     updateGlassPeek();
   }
 
-  // ---------- Drag the glass box around the screen ----------
+  // ---------- Glass box: grow on hover/hold, drag to reposition ----------
   //
-  // #glass-box is positioned via `transform: translate(boxX, boxY)`.
-  // #glass-peek (see styles.css) is a full-viewport copy of the next
-  // photo that always carries the exact opposite transform, so it
-  // stays visually pinned to the viewport no matter where the box is.
-  // The result: wherever you drag the box, its clipped window shows
-  // exactly that region of the next photo, as if it were a lens held
-  // up to a full-size picture fixed behind the page.
+  // #glass-box's CENTER point is tracked as (centerX, centerY) and
+  // written to its `left`/`top` (px); CSS keeps it self-centered via
+  // `transform: translate(-50%, -50%)`, so re-centering after a size
+  // change is automatic. Size (rest ~10% vs. grown ~80% of the screen)
+  // is toggled with the `.grown` class and animated by the CSS
+  // transition declared on #glass-box.
+  //
+  // Because position and size can now change independently (and size
+  // animates on its own CSS timeline), #glass-peek's compensating
+  // transform is kept in sync continuously via requestAnimationFrame,
+  // reading #glass-box's live rendered rect every frame rather than
+  // being computed only when position changes. That's what preserves
+  // the "wherever the box is, it shows that part of the next photo"
+  // lens effect while it's also resizing.
 
   const DRAG_THRESHOLD_PX = 4;
-  const SNAP_BACK_MS = 400;
 
-  let boxX = 0;
-  let boxY = 0;
+  let centerX = 0;
+  let centerY = 0;
   let homeX = 0;
   let homeY = 0;
   let isDragging = false;
   let dragMoved = false;
   let dragStartClientX = 0;
   let dragStartClientY = 0;
-  let dragStartBoxX = 0;
-  let dragStartBoxY = 0;
+  let dragStartCenterX = 0;
+  let dragStartCenterY = 0;
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
   }
 
-  function setBoxPosition(x, y) {
-    boxX = x;
-    boxY = y;
-    glassBox.style.transform = `translate(${x}px, ${y}px)`;
-    glassPeek.style.transform = `translate(${-x}px, ${-y}px)`;
+  function setBoxCenter(x, y) {
+    centerX = x;
+    centerY = y;
+    glassBox.style.left = `${x}px`;
+    glassBox.style.top = `${y}px`;
   }
 
   function computeHomePosition() {
-    homeX = (window.innerWidth - glassBox.offsetWidth) / 2;
-    homeY = (window.innerHeight - glassBox.offsetHeight) / 2;
+    homeX = window.innerWidth / 2;
+    homeY = window.innerHeight / 2;
   }
 
-  function moveToHome(animate) {
-    const transition = animate ? `transform ${SNAP_BACK_MS}ms cubic-bezier(0.22, 1, 0.36, 1)` : "none";
-    glassBox.style.transition = transition;
-    glassPeek.style.transition = transition;
-    setBoxPosition(homeX, homeY);
+  function moveToHome() {
+    glassBox.classList.remove("grown");
+    setBoxCenter(homeX, homeY);
+  }
+
+  function syncPeekToBox() {
+    // While dragging, the box's size can keep animating (grow) even
+    // with the cursor stationary, so re-clamp its center every frame —
+    // not just on mousemove — or a corner-anchored box could grow
+    // past the viewport edge before the next cursor movement.
+    if (isDragging) {
+      const halfW = glassBox.offsetWidth / 2;
+      const halfH = glassBox.offsetHeight / 2;
+      const clampedX = clamp(centerX, halfW, window.innerWidth - halfW);
+      const clampedY = clamp(centerY, halfH, window.innerHeight - halfH);
+      if (clampedX !== centerX || clampedY !== centerY) {
+        setBoxCenter(clampedX, clampedY);
+      }
+    }
+    const rect = glassBox.getBoundingClientRect();
+    glassPeek.style.transform = `translate(${-rect.left}px, ${-rect.top}px)`;
+    requestAnimationFrame(syncPeekToBox);
   }
 
   computeHomePosition();
-  moveToHome(false);
+  setBoxCenter(homeX, homeY);
+  requestAnimationFrame(syncPeekToBox);
 
   window.addEventListener("resize", () => {
     computeHomePosition();
-    if (!isDragging) moveToHome(false);
+    if (!isDragging) moveToHome();
+  });
+
+  glassBox.addEventListener("mouseenter", () => {
+    glassBox.classList.add("grown");
+  });
+
+  glassBox.addEventListener("mouseleave", () => {
+    if (!isDragging) glassBox.classList.remove("grown");
   });
 
   glassBox.addEventListener("mousedown", (e) => {
@@ -125,10 +157,9 @@
     dragMoved = false;
     dragStartClientX = e.clientX;
     dragStartClientY = e.clientY;
-    dragStartBoxX = boxX;
-    dragStartBoxY = boxY;
-    glassBox.style.transition = "none";
-    glassPeek.style.transition = "none";
+    dragStartCenterX = centerX;
+    dragStartCenterY = centerY;
+    glassBox.classList.add("grown", "dragging");
   });
 
   window.addEventListener("mousemove", (e) => {
@@ -138,18 +169,19 @@
     if (Math.abs(dx) > DRAG_THRESHOLD_PX || Math.abs(dy) > DRAG_THRESHOLD_PX) {
       dragMoved = true;
     }
-    const maxX = window.innerWidth - glassBox.offsetWidth;
-    const maxY = window.innerHeight - glassBox.offsetHeight;
-    setBoxPosition(
-      clamp(dragStartBoxX + dx, 0, maxX),
-      clamp(dragStartBoxY + dy, 0, maxY)
+    const halfW = glassBox.offsetWidth / 2;
+    const halfH = glassBox.offsetHeight / 2;
+    setBoxCenter(
+      clamp(dragStartCenterX + dx, halfW, window.innerWidth - halfW),
+      clamp(dragStartCenterY + dy, halfH, window.innerHeight - halfH)
     );
   });
 
   window.addEventListener("mouseup", () => {
     if (!isDragging) return;
     isDragging = false;
-    moveToHome(true);
+    glassBox.classList.remove("dragging");
+    moveToHome();
   });
 
   // ---------- Interaction ----------

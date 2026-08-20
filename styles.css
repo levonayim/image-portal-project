@@ -76,12 +76,22 @@ html, body {
 
 /* ---------- Glass box ---------- */
 
+:root {
+  /* "Rest" size: 10% of the box's normal (pre-this-change) footprint. */
+  --glass-rest-w: 24px;
+  --glass-rest-h: 34px;
+  /* Grown size while hovered/held: most of the screen. */
+  --glass-grown-w: 80vw;
+  --glass-grown-h: 80vh;
+}
+
 #glass-box {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: min(240px, 53vw);
-  height: min(345px, 49vh);
+  left: 50%;
+  top: 50%;
+  width: var(--glass-rest-w);
+  height: var(--glass-rest-h);
+  transform: translate(-50%, -50%);
   border-radius: 24px;
   overflow: hidden;
   cursor: grab;
@@ -90,7 +100,23 @@ html, body {
     0 2px 8px rgba(0, 0, 0, 0.25);
   isolation: isolate;
   z-index: 10;
-  will-change: transform;
+  transition:
+    left 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    top 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#glass-box.grown {
+  width: var(--glass-grown-w);
+  height: var(--glass-grown-h);
+}
+
+/* While actively being dragged, left/top must jump 1:1 with the
+   cursor (no transition lag); width/height keep animating normally
+   so a grow-while-holding still feels smooth. */
+#glass-box.dragging {
+  transition-property: width, height;
 }
 
 #glass-box:active {
@@ -105,14 +131,16 @@ html, body {
 /*
  * #glass-peek is sized to the full viewport and given the SAME
  * background-size/position as the main .bg-photo layers, so it behaves
- * like a second full-screen photo sitting behind the page. #glass-box
- * moves via `transform: translate(bx, by)`; #glass-peek always carries
- * the exact opposite transform `translate(-bx, -by)`. Because a
- * transformed ancestor becomes the containing block for its
- * descendants, the two offsets cancel out and #glass-peek renders
- * pinned to the viewport regardless of where the box is — so
- * #glass-box's overflow:hidden clip acts as a window that reveals
- * whatever part of the next photo happens to sit under it on screen.
+ * like a second full-screen photo sitting behind the page. #glass-box's
+ * position (`left`/`top`, JS-controlled) and size (rest/grown, above)
+ * can both change independently, so app.js keeps #glass-peek's
+ * transform continuously in sync with #glass-box's live on-screen
+ * top-left corner (via getBoundingClientRect on every frame) rather
+ * than computing it from position alone. The two cancel out and
+ * #glass-peek renders pinned to the viewport regardless of where the
+ * box is or how big it is — so #glass-box's overflow:hidden clip acts
+ * as a window that reveals whatever part of the next photo happens to
+ * sit under it on screen.
  */
 #glass-peek {
   position: fixed;
